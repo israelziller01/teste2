@@ -1,0 +1,85 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Leitor de Estoque por Imagem</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f7f7f7; }
+    input, button { padding: 10px; margin-top: 10px; }
+    img { max-width: 100%; margin-top: 20px; }
+    textarea { width: 100%; height: 200px; margin-top: 20px; font-family: monospace; }
+    #loading { display: none; margin-top: 15px; font-weight: bold; color: #0066cc; }
+  </style>
+</head>
+<body>
+  <h1>Leitor Automático de Estoque</h1>
+  <p>Envie uma imagem manuscrita com os itens e veja o resultado formatado automaticamente.</p>
+
+  <input type="file" id="imagem" accept="image/*">
+  <button onclick="lerImagem()">Ler Imagem</button>
+  
+  <div>
+    <img id="preview" src="" alt="Pré-visualização" style="display:none">
+  </div>
+
+  <div id="loading">🔄 Processando imagem... Aguarde</div>
+
+  <textarea id="resultado" placeholder="Texto reconhecido aparecerá aqui..."></textarea>
+
+  <script>
+    function lerImagem() {
+      const file = document.getElementById('imagem').files[0];
+      const preview = document.getElementById('preview');
+      const resultado = document.getElementById('resultado');
+      const loading = document.getElementById('loading');
+
+      if (!file) return alert("Envie uma imagem primeiro.");
+
+      resultado.value = '';
+      loading.style.display = 'block';
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+
+        Tesseract.recognize(
+          e.target.result,
+          'por',
+          { logger: m => console.log(m) }
+        ).then(({ data: { text } }) => {
+          const linhas = text.trim().split('\n');
+          const regex = /^(\d+)\s+(.*)$/;
+          const contagem = {};
+
+          linhas.forEach(linha => {
+            const match = linha.match(regex);
+            if (match) {
+              const qtd = parseInt(match[1]);
+              let item = match[2].toLowerCase().trim();
+              item = item.replace(/[\d\+\*]+/g, '').trim();
+              if (contagem[item]) {
+                contagem[item] += qtd;
+              } else {
+                contagem[item] = qtd;
+              }
+            }
+          });
+
+          let saida = '';
+          for (const [item, qtd] of Object.entries(contagem)) {
+            saida += `${qtd} ${item}\n`;
+          }
+
+          resultado.value = saida.trim();
+        }).finally(() => {
+          loading.style.display = 'none';
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
